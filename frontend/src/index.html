@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Manager</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Georgia', serif;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.4rem;
+      color: #fff;
+    }
+    .subtitle {
+      color: #666;
+      font-size: 0.9rem;
+      margin-bottom: 2.5rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .form-box {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 0.75rem;
+      align-items: end;
+    }
+    label { display: block; font-size: 0.75rem; color: #888; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    input {
+      width: 100%;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #e8e8e8;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: #e8c84a; }
+    button.add-btn {
+      background: #e8c84a;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+    button.add-btn:hover { opacity: 0.85; }
+    .task-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .task-item {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: border-color 0.2s;
+    }
+    .task-item:hover { border-color: #3a3a3a; }
+    .task-title { font-size: 1rem; color: #fff; }
+    .task-meta { font-size: 0.78rem; color: #666; margin-top: 0.2rem; }
+    .delete-btn {
+      background: transparent;
+      border: 1px solid #333;
+      color: #666;
+      border-radius: 4px;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+    .delete-btn:hover { border-color: #e85a4a; color: #e85a4a; }
+    .empty { color: #444; text-align: center; padding: 3rem; font-style: italic; }
+    .status { font-size: 0.8rem; padding: 0.4rem 0.8rem; border-radius: 4px; margin-bottom: 1rem; display: none; }
+    .status.ok { background: #1a2a1a; color: #5a9; border: 1px solid #2a4a2a; display: block; }
+    .status.err { background: #2a1a1a; color: #e85a4a; border: 1px solid #4a2a2a; display: block; }
+    @media (max-width: 700px) {
+      .form-box { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Task Manager</h1>
+  <p class="subtitle">Full-Stack CI/CD App</p>
+
+  <div id="status" class="status"></div>
+
+  <div class="form-box">
+    <div>
+      <label>Задача</label>
+      <input type="text" id="title" placeholder="Название задачи">
+    </div>
+    <div>
+      <label>Имя студента</label>
+      <input type="text" id="student_name" placeholder="Иван Иванов">
+    </div>
+    <div>
+      <label>ID студента</label>
+      <input type="text" id="student_id" placeholder="ST-2024-001">
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <button class="add-btn" onclick="addTask()">+ Добавить</button>
+    </div>
+  </div>
+
+  <div class="task-list" id="taskList">
+    <div class="empty">Загрузка...</div>
+  </div>
+
+  <script>
+    const API = window.ENV_API_URL || 'http://localhost:5000';
+
+    function showStatus(msg, isError) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status ' + (isError ? 'err' : 'ok');
+      setTimeout(() => el.className = 'status', 3000);
+    }
+
+    async function loadTasks() {
+      try {
+        const res = await fetch(API + '/api/data');
+        const tasks = await res.json();
+        const list = document.getElementById('taskList');
+        if (!tasks.length) {
+          list.innerHTML = '<div class="empty">Задач пока нет. Добавьте первую!</div>';
+          return;
+        }
+        list.innerHTML = tasks.map(t => `
+          <div class="task-item">
+            <div>
+              <div class="task-title">${t.title}</div>
+              <div class="task-meta">${t.student_name} · ${t.student_id}</div>
+            </div>
+            <button class="delete-btn" onclick="deleteTask(${t.id})">Удалить</button>
+          </div>
+        `).join('');
+      } catch (e) {
+        document.getElementById('taskList').innerHTML = '<div class="empty">Ошибка подключения к API</div>';
+      }
+    }
+
+    async function addTask() {
+      const title = document.getElementById('title').value.trim();
+      const student_name = document.getElementById('student_name').value.trim();
+      const student_id = document.getElementById('student_id').value.trim();
+      if (!title || !student_name || !student_id) {
+        showStatus('Заполните все поля!', true); return;
+      }
+      try {
+        await fetch(API + '/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, student_name, student_id })
+        });
+        document.getElementById('title').value = '';
+        showStatus('Задача добавлена!', false);
+        loadTasks();
+      } catch (e) {
+        showStatus('Ошибка при добавлении', true);
+      }
+    }
+
+    async function deleteTask(id) {
+      try {
+        await fetch(API + '/api/data/' + id, { method: 'DELETE' });
+        showStatus('Удалено!', false);
+        loadTasks();
+      } catch (e) {
+        showStatus('Ошибка при удалении', true);
+      }
+    }
+
+    loadTasks(); </script>
+</body>
+</html>
